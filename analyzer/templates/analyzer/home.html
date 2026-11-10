@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Resume Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;min-height:100vh;color:#e8eaf6;background:linear-gradient(135deg,#0f172a,#1e1b4b 50%,#312e81);padding:40px 16px}
+.wrap{max-width:760px;margin:0 auto}
+header{text-align:center;margin-bottom:32px}
+header h1{font-size:2.2rem;font-weight:700;background:linear-gradient(90deg,#818cf8,#c084fc,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+header p{color:#a5b4fc;margin-top:8px;font-size:.95rem}
+.card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:28px;box-shadow:0 10px 40px rgba(0,0,0,.35);margin-bottom:24px}
+label.title{display:block;font-weight:600;margin-bottom:10px;font-size:.95rem}
+.dropzone{border:2px dashed rgba(165,180,252,.5);border-radius:14px;padding:30px 16px;text-align:center;cursor:pointer;transition:.25s;margin-bottom:22px}
+.dropzone:hover,.dropzone.drag{border-color:#c084fc;background:rgba(192,132,252,.1)}
+.dropzone .icon{font-size:2rem}
+.hint{color:#a5b4fc;font-size:.85rem;margin-top:6px}
+.filename{margin-top:8px;font-weight:600;color:#86efac}
+.dropzone input{display:none}
+textarea{width:100%;min-height:150px;resize:vertical;background:rgba(15,23,42,.6);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:14px;color:#e8eaf6;font-family:inherit;font-size:.92rem;margin-bottom:22px;outline:none}
+textarea:focus{border-color:#818cf8}
+button{width:100%;padding:14px;border:none;border-radius:12px;font-size:1rem;font-weight:600;color:#fff;cursor:pointer;background:linear-gradient(90deg,#6366f1,#a855f7);transition:.15s}
+button:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(99,102,241,.5)}
+.error{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.5);color:#fecaca;padding:14px 18px;border-radius:12px;margin-bottom:24px}
+.score-row{display:flex;align-items:center;gap:28px;flex-wrap:wrap;margin-bottom:24px}
+.ring{width:130px;height:130px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(#a855f7 calc({{ score|default:0 }} * 1%),rgba(255,255,255,.12) 0)}
+.ring span{width:100px;height:100px;border-radius:50%;background:#1e1b4b;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:700}
+.score-text h2{font-size:1.3rem;margin-bottom:6px}
+.score-text p{color:#c7d2fe;font-size:.95rem;max-width:420px}
+h3{font-size:.95rem;margin:18px 0 10px;color:#c7d2fe}
+.badge{display:inline-block;padding:6px 14px;border-radius:999px;font-size:.82rem;font-weight:500;margin:0 6px 8px 0}
+.good{background:rgba(34,197,94,.18);color:#86efac;border:1px solid rgba(34,197,94,.4)}
+.bad{background:rgba(244,63,94,.18);color:#fda4af;border:1px solid rgba(244,63,94,.4)}
+.tips{padding-left:20px;color:#c7d2fe;font-size:.9rem;line-height:1.7}
+footer{text-align:center;color:#818cf8;font-size:.8rem;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>📄 AI Resume Analyzer</h1>
+<p>Check how well your resume matches a job description using AI</p>
+</header>
+
+<form method="post" enctype="multipart/form-data" class="card" id="form">
+{% csrf_token %}
+<label class="title">1. Upload your resume (PDF or Word)</label>
+<div class="dropzone" id="drop">
+<div class="icon">⬆️</div>
+<div>Click to browse or drag and drop your file here</div>
+<div class="hint">PDF or Word (.docx)</div>
+<div class="filename" id="fname"></div>
+<input type="file" name="resume" id="file" accept=".pdf,.docx" required>
+</div>
+<label class="title">2. Paste the job description</label>
+<textarea name="jd" placeholder="Paste the full job description here..." required></textarea>
+<button type="submit" id="btn">Analyze Resume</button>
+</form>
+
+{% if error %}
+<div class="error">⚠️ {{ error }}</div>
+{% endif %}
+
+{% if score is not None %}
+<div class="card">
+<div class="score-row">
+<div class="ring"><span>{{ score }}%</span></div>
+<div class="score-text">
+<h2>Match Score</h2>
+<p>{{ tip }}</p>
+</div>
+</div>
+
+<h3>✅ Matched skills</h3>
+<div>
+{% for w in matched %}<span class="badge good">{{ w }}</span>{% empty %}<span class="hint">None found</span>{% endfor %}
+</div>
+
+<h3>❌ Missing skills</h3>
+<div>
+{% for w in missing %}<span class="badge bad">{{ w }}</span>{% empty %}<span class="hint">Nothing missing</span>{% endfor %}
+</div>
+
+{% if tips %}
+<h3>💡 How to improve</h3>
+<ul class="tips">
+{% for t in tips %}<li>{{ t }}</li>{% endfor %}
+</ul>
+{% endif %}
+</div>
+{% endif %}
+
+<footer>Built with Django, sentence-transformers and pypdf</footer>
+</div>
+
+<script>
+const drop=document.getElementById('drop'),file=document.getElementById('file'),fname=document.getElementById('fname');
+drop.addEventListener('click',()=>file.click());
+file.addEventListener('change',()=>{fname.textContent=file.files.length?'✔ '+file.files[0].name:''});
+['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('drag')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('drag')}));
+drop.addEventListener('drop',ev=>{file.files=ev.dataTransfer.files;file.dispatchEvent(new Event('change'))});
+document.getElementById('form').addEventListener('submit',()=>{document.getElementById('btn').textContent='Analyzing...'});
+</script>
+</body>
+</html>

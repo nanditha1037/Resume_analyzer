@@ -1,0 +1,4 @@
+django
+pypdf
+python-docx
+sentence-transformers
